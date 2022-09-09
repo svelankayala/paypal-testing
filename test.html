@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Add meta tags for mobile and IE -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title> PayPal Smart Payment Buttons Integration | Server Demo </title>
+</head>
+
+<body>
+    <!-- Set up a container element for the button -->
+    <h3>Full Lifecycle:</h3>
+    <div id="paypal-button-container"></div>
+
+    <br>
+    <h3>Dummy approval:</h3>
+    <label>Order Id:</label><input type="text" id="orderId" name="orderId" maxlength="40" size="40"
+                                   value="myPaypalOrderIdGoesHere">
+    <div id="paypal-dummy-container"></div>
+
+    <!-- Include the PayPal JavaScript SDK -->
+    <script
+      src="https://www.paypal.com/sdk/js?client-id=QTOgcCcAPDc7V_5CkqaT8OLzc4YAA_380J_ChxjAXVo_amDCvMvWDDH_lAIOYBQracNyLKZSp-NujJm&currency=USD&disable-funding=credit,card"></script>
+
+    <script>
+        // Render the PayPal button into #paypal-button-container
+        paypal.Buttons({
+
+            // Call your server to set up the transaction
+            createOrder: function(data, actions) {
+                return fetch('/order', {
+                    method: 'post',
+                    url: '',
+                    body: '{"zoo":"nomore"}'
+                }).then(function(res) {
+                    return res.json();
+                }).then(function(orderData) {
+                    return orderData.id;
+                });
+            },
+
+            // Call your server to finalize the transaction
+            onApprove: function(data, actions) {
+                return fetch('/order/' + data.orderID + '/capture', {
+                    method: 'post',
+                    url: ''
+                }).then(function(res) {
+                    return res.json();
+                }).then(function(orderData) {
+                    var errorDetail = Array.isArray(orderData.details) && orderData.details[0];
+
+                    if (errorDetail && errorDetail.issue === 'INSTRUMENT_DECLINED') {
+                        return actions.restart(); // Recoverable state, per:
+                        // https://developer.paypal.com/docs/checkout/integration-features/funding-failure/
+                    }
+
+                    if (errorDetail) {
+                        var msg = 'Sorry, your transaction could not be processed.';
+                        if (errorDetail.description) msg += '\n\n' + errorDetail.description;
+                        if (orderData.debug_id) msg += ' (' + orderData.debug_id + ')';
+                        return alert(msg); // Show a failure message
+                    }
+
+                    // Show a success message
+                    alert('Transaction completed by ' + orderData.payer.name.given_name);
+                });
+            }
+
+        }).render('#paypal-button-container');
+
+        paypal.Buttons({
+            // Call your server to set up the transaction
+            createOrder: function(data, actions) {
+                console.log("dummy call");
+                return document.getElementById("orderId").value
+            },
+
+            // Call your server to finalize the transaction
+            onApprove: function(data, actions) {
+                return fetch('/order/' + data.orderID + '/capture', {
+                    method: 'post',
+                    url: ''
+                }).then(function(res) {
+                    return res.json();
+                }).then(function(orderData) {
+                    var errorDetail = Array.isArray(orderData.details) && orderData.details[0];
+
+                    if (errorDetail && errorDetail.issue === 'INSTRUMENT_DECLINED') {
+                        return actions.restart(); // Recoverable state, per:
+                        // https://developer.paypal.com/docs/checkout/integration-features/funding-failure/
+                    }
+
+                    if (errorDetail) {
+                        var msg = 'Sorry, your transaction could not be processed.';
+                        if (errorDetail.description) msg += '\n\n' + errorDetail.description;
+                        if (orderData.debug_id) msg += ' (' + orderData.debug_id + ')';
+                        return alert(msg); // Show a failure message
+                    }
+
+                    // Show a success message
+                    alert('Transaction approved');
+                });
+            }
+
+        }).render('#paypal-dummy-container');
+    </script>
+</body>
+
+</html>
